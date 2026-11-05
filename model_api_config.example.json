@@ -1,0 +1,10 @@
+{
+  "models": {
+    "qwen_local": {
+      "backend": "openai_compatible",
+      "model": "qwen2.5-32b-instruct",
+      "api_key_env": "LOCAL_LLM_API_KEY",
+      "base_url": "http://127.0.0.1:8000/v1"
+    }
+  }
+}

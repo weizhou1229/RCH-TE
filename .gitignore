@@ -1,0 +1,42 @@
+# Python and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+.pytest_cache/
+.cache/
+
+# Deployment credentials and backups
+model_api_config.json
+model_api_config.json.bak*
+*.bak*
+
+# Model checkpoints
+*.pt
+*.pth
+*.bin
+*.safetensors
+*_models*/
+pretrained_models/
+bert-base-uncased/
+
+# Training data, generated artifacts and local archives
+relation_classifier_data/
+relation_verifier_data/
+entity_alignment_data*/
+output/
+log/
+logs/
+result_xmls/
+backup/
+env-backups/
+*.log
+*.pid
+.pid
+*.tar.gz
+*.zip
+
+# Server shell launchers
+*.sh

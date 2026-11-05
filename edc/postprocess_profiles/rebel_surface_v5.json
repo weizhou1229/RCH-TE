@@ -1,0 +1,22 @@
+{
+  "name": "rebel_surface_v5",
+  "description": "REBEL conservative cleanup with source-mention validation and a length-adaptive prediction budget.",
+  "surface_mode": "preserve",
+  "enable_relation_repairs": false,
+  "load_legacy_entity_resources": false,
+  "strip_numeric_units": false,
+  "filter_schema_relations": false,
+  "dedupe_mode": "exact",
+  "reject_pronoun_entities": true,
+  "require_entity_mentions": true,
+  "remove_inverse_duplicates": true,
+  "max_triples_per_row": null,
+  "enforce_rebel_date_triggers": false,
+  "length_adaptive_budget": {
+    "short_max_chars": 200,
+    "short_max_triples": 2,
+    "medium_max_chars": 500,
+    "medium_max_triples": 3,
+    "long_max_triples": 4
+  }
+}

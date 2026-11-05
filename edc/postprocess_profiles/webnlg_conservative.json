@@ -1,0 +1,10 @@
+{
+  "name": "webnlg_conservative",
+  "description": "Preserve the existing WebNLG normalization and relation-repair behavior.",
+  "surface_mode": "webnlg",
+  "enable_relation_repairs": true,
+  "load_legacy_entity_resources": true,
+  "strip_numeric_units": true,
+  "filter_schema_relations": true,
+  "dedupe_mode": "case_insensitive"
+}

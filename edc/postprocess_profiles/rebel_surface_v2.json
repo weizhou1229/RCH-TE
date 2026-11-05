@@ -1,0 +1,14 @@
+{
+  "name": "rebel_surface_v2",
+  "description": "REBEL-specific surface cleanup for pronouns, inverse duplicates, date evidence, and prediction budget.",
+  "surface_mode": "preserve",
+  "enable_relation_repairs": false,
+  "load_legacy_entity_resources": false,
+  "strip_numeric_units": false,
+  "filter_schema_relations": false,
+  "dedupe_mode": "exact",
+  "reject_pronoun_entities": true,
+  "remove_inverse_duplicates": true,
+  "max_triples_per_row": 4,
+  "enforce_rebel_date_triggers": true
+}

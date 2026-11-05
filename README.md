@@ -61,7 +61,6 @@ flowchart TD
 ```text
 .
 ├── run_bf_edc.py                   # RCH-TE 主抽取入口，沿用 BF-EDC 命名
-├── run.py                          # 基础 EDC 入口
 ├── edc/
 │   ├── bidirectional_feedback_edc.py
 │   ├── schema_definition.py
@@ -89,6 +88,13 @@ flowchart TD
 
 ## 环境安装
 
+先获取仓库并进入项目根目录。
+
+```bash
+git clone https://github.com/weizhou1229/RCH-TE.git
+cd RCH-TE
+```
+
 `environment.yml` 保存了 Linux/CUDA 环境快照，包含 Python 3.9、PyTorch 2.2.2、CUDA 12.1、Transformers 4.43.4 和 Sentence Transformers 3.0.1。可在 Linux 或 WSL 中使用 Conda 创建环境。
 
 ```bash
@@ -104,7 +110,7 @@ python -m nltk.downloader punkt punkt_tab
 
 该快照包含平台相关包。迁移到其他操作系统或 CUDA 版本时，需要适配相应依赖。运行前还需准备所选嵌入模型，启用实体对齐、关系重排或文本验证时，还需提供相应检查点及资源。
 
-保存的实现审计记录了双 RTX 3090、vLLM 部署的 Qwen2.5-32B-Instruct-AWQ 和 `e5-mistral-7b-instruct` 配置。其他实验的模型版本和量化精度应按各自运行记录确认。[实现审计](analysis/implementation_audit_20261023/report.zh-CN.md)
+本发布版本保留服务器源码中的嵌入模型加载配置，单 GPU 的 Sentence Transformers 分支使用 FP16。LLM 服务地址、实际模型名称、量化配置和推理参数由使用者的部署与运行配置确定。
 
 ## 模型配置
 
@@ -261,7 +267,39 @@ python -m scripts.rebel.apply_rebel_entailment_scores \
 
 示例中的 `0.90` 仅演示参数写法。关系级策略使用 `--threshold_policy /path/to/threshold_policy.json` 替换 `--threshold`。评分和过滤必须使用同一份候选文件，局部修改、去重或重排后应重新评分，并核对行号、候选索引和内容。过滤脚本默认保留缺失评分的候选，完整实验需检查评分覆盖情况和输出摘要。
 
-验证器训练入口为 `scripts/rebel/train_rebel_entailment_verifier.py`。各数据集的数据构建和种子实验说明位于对应脚本目录。[WebNLG](scripts/webnlg/README_verifier_seed_study.zh-CN.md) · [REBEL](scripts/rebel/README_verifier_seed_study.zh-CN.md) · [Wiki-NRE](scripts/wiki_nre/README_verifier_seed_study.zh-CN.md)
+### 训练与数据准备
+
+实体对齐、关系分类与文本验证的训练入口均保留为 Python 源码。数据路径需要改为已经准备好的训练目录，运行配置按目标实验选择。
+
+```bash
+python train_entity_aligner.py --help
+python train_relation_classifier_v2.py --help
+python -m scripts.rebel.train_rebel_entailment_verifier --help
+```
+
+验证器训练数据使用 `train.jsonl` 和 `val.jsonl`，每行包含 `context`、`subject`、`relation`、`object` 和二分类 `label` 字段。下面演示训练命令的参数组织方式。
+
+```bash
+python -m scripts.rebel.train_rebel_entailment_verifier \
+  --data_dir /path/to/verifier_data \
+  --output_dir /path/to/verifier_checkpoint \
+  --model_name bert-base-uncased \
+  --structured_input \
+  --max_length 192 \
+  --context_window_chars 0
+```
+
+模型选择、数据划分和输入格式需与目标协议一致。现有验证器训练器仅向模型传入 `input_ids` 与 `attention_mask`，评分器传入 tokenizer 的全部输出，复现历史检查点时需记录这一编码约定。
+
+数据获取与构建入口按数据集组织。
+
+| 数据集 | 数据准备入口 |
+| --- | --- |
+| WebNLG | `scripts/webnlg/build_webnlg_entailment_data.py` |
+| REBEL | `scripts/rebel/build_rebel_official_schema.py`、`build_rebel_official_protocol.py`、`build_rebel_train_few_shot.py`，以及该目录下的实体对齐、关系分类和验证数据构建脚本 |
+| Wiki-NRE | `scripts/wiki_nre/convert_wiki_nre_parquet.py`、`build_wiki_nre_official_schema.py`、`build_wiki_nre_entity_alignment_data.py`、`build_wiki_nre_relation_classifier_data.py` |
+
+原始数据和模型检查点根据各自来源与许可获取，训练、验证与评价分区应按记录 ID 明确分离。仓库提供最小 `example` 输入、模式和 few-shot 资源，完整实验资源由使用者按对应协议准备。
 
 ## 输出与审计
 
@@ -296,13 +334,20 @@ python evaluate/evaluation_script1.py \
 
 ## 实验配置与复现范围
 
-仓库包含 WebNLG、REBEL 和 Wiki-NRE 相关工具，以及多组候选、规则和验证器实验。复现具体论文表格时，需要同时固定数据版本、few-shot 来源、候选文件、检查点、阈值策略、处理顺序和评估器。
+本仓库提供核心实现、最小示例、训练与数据准备源码。论文表格的精确复现还需要固定完整数据、few-shot 来源、候选快照、检查点、阈值策略、规则版本和评估器，并保存对应文件哈希。
 
-- **数据版本**。默认 `datasets/rebel.txt`、`datasets/wiki-nre.txt` 与后续 `official_*` 实验使用的数据资源分别管理，正式实验按运行记录指定完整路径。
-- **模块开关**。`--ablation_mode full` 启用该模式的基础增强配置。关系分类器、关系重排、神经实体对齐和最终输出处理各有独立开关，文本验证在离线阶段运行。
-- **处理顺序**。统一精化协议采用局部修正后重新评分、再验证的顺序。历史配置还包含验证后处理和仅验证分支，各配置的结果按对应流程解释。
-- **训练与选择范围**。已有审计记录了部分历史训练数据重叠、评价数据参与阈值或规则选择，以及训练与评分输入编码约定差异。相关历史结果与训练随机性实验应按记录的适用范围报告。[协议审计](analysis/paper_final_protocol_20261022/answers.zh-CN.md)
-- **消融与稳定性**。主入口提供 `--disable_ca_oie`、`--disable_sd_ac`、`--disable_bi_sc`、`--disable_gca` 等开关。固定候选的局部修正与验证四组对照另有脚本，运行方式见相应说明。多个训练种子的结果需使用同一冻结协议汇总。[固定候选对照](scripts/README_dataset_corrections_v3.md)
+- **模块配置**。`--ablation_mode full` 使用基础增强配置。关系分类器、关系重排、神经实体对齐和最终输出处理各有独立开关，文本验证在离线阶段运行。
+- **处理顺序**。统一精化协议在局部修正后重新评分，再进行验证。历史验证后处理与仅验证配置应按各自顺序报告。
+- **资源来源**。实体字典、few-shot 与数据集相关规则需记录构建来源及所接触的数据分区。历史规则曾参考评价诊断，独立评估需要在训练或开发阶段确定规则后冻结。
+- **局部修正实验**。`scripts/analyze_dataset_corrections_v3.py` 和 `scripts/analyze_dataset_corrections_v4.py` 支持固定候选上的四组对照。它们的完整实验入口依赖对应候选、模式、阈值策略及实验 `manifest.json`，准备完成后通过 `--ablation-dir` 指定实验目录。参数说明可使用 `python scripts/analyze_dataset_corrections_v3.py --help` 查看。
+- **历史兼容配置**。主入口保留了未启用的 refinement 配置，其中引用 `prompt_templates/oie_refine_template.txt`，发布资源中的文件名为 `oie_r_template.txt`。如扩展该路径，需要先对齐模板配置并验证运行。
+
+可以先执行以下离线自检，检查评估器对齐逻辑和局部纠正规则。
+
+```bash
+python evaluate/evaluation_script1.py --verify_solver
+python scripts/analyze_dataset_corrections_v4.py --self-test
+```
 
 ## 致谢与引用
 

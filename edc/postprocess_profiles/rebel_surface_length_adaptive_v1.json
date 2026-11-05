@@ -1,0 +1,23 @@
+{
+  "name": "rebel_surface_length_adaptive_v1",
+  "description": "REBEL cleanup with pronoun and inverse filtering plus a length-adaptive row budget.",
+  "surface_mode": "preserve",
+  "enable_relation_repairs": false,
+  "load_legacy_entity_resources": false,
+  "strip_numeric_units": false,
+  "filter_schema_relations": false,
+  "dedupe_mode": "exact",
+  "reject_pronoun_entities": true,
+  "remove_inverse_duplicates": true,
+  "max_triples_per_row": null,
+  "enforce_rebel_date_triggers": false,
+  "enable_rebel_relation_constraints": false,
+  "enable_rebel_relation_reranking": false,
+  "length_adaptive_budget": {
+    "short_max_chars": 200,
+    "short_max_triples": 2,
+    "medium_max_chars": 500,
+    "medium_max_triples": 3,
+    "long_max_triples": 4
+  }
+}

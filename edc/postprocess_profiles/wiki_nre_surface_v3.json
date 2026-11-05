@@ -1,0 +1,14 @@
+{
+  "name": "wiki_nre_surface_v3",
+  "description": "Wiki-NRE conservative cleanup without hard deletion of pronoun subjects.",
+  "surface_mode": "preserve",
+  "enable_relation_repairs": false,
+  "load_legacy_entity_resources": false,
+  "strip_numeric_units": false,
+  "filter_schema_relations": false,
+  "dedupe_mode": "case_insensitive",
+  "reject_pronoun_entities": false,
+  "reject_self_relations": true,
+  "repair_truncated_years": true,
+  "reject_date_as_cause_of_death": true
+}

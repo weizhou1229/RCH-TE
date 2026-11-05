@@ -1,0 +1,16 @@
+{
+  "name": "rebel_surface_v4",
+  "description": "REBEL v3 cleanup plus conservative relation constraints and relation-priority ordering.",
+  "surface_mode": "preserve",
+  "enable_relation_repairs": false,
+  "load_legacy_entity_resources": false,
+  "strip_numeric_units": false,
+  "filter_schema_relations": false,
+  "dedupe_mode": "exact",
+  "reject_pronoun_entities": true,
+  "remove_inverse_duplicates": true,
+  "max_triples_per_row": 4,
+  "enforce_rebel_date_triggers": false,
+  "enable_rebel_relation_constraints": true,
+  "enable_rebel_relation_reranking": true
+}

@@ -1,0 +1,15 @@
+{
+  "name": "rebel_surface_v6",
+  "description": "REBEL conservative cleanup with source-mention validation; preserves the extractor's full candidate set for recall analysis.",
+  "surface_mode": "preserve",
+  "enable_relation_repairs": false,
+  "load_legacy_entity_resources": false,
+  "strip_numeric_units": false,
+  "filter_schema_relations": false,
+  "dedupe_mode": "exact",
+  "reject_pronoun_entities": true,
+  "require_entity_mentions": true,
+  "remove_inverse_duplicates": true,
+  "max_triples_per_row": null,
+  "enforce_rebel_date_triggers": false
+}

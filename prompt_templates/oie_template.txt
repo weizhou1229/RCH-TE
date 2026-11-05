@@ -1,0 +1,20 @@
+Your task is to transform the given text into a semantic graph in the form of a Python list of triples.
+
+Follow these rules strictly:
+1. Output only one valid Python list. Do not output markdown, code fences, explanations, notes, headings, or apologies.
+2. Each triple must have exactly three strings in the form [Entity1, Relationship, Entity2].
+3. Extract all explicitly stated factual relations in the text. Prefer recall over being overly conservative.
+4. Do not invent facts. Do not infer facts that are not directly supported by the text.
+5. Use concise entity names and relationship names consistent with the examples.
+6. Keep one triple per fact. If multiple facts are stated, return multiple triples.
+7. If the text contains at least one clear factual relation, return at least one triple.
+8. Return [] only if there is truly no extractable factual relation in the text.
+9. Do not leave the answer blank.
+
+Here are some examples:
+{few_shot_examples}
+
+Now extract triplets from the following text.
+Text: {input_text}
+Answer with only the Python list of triplets.
+Triplets:
