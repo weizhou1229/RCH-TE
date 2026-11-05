@@ -2,11 +2,9 @@
 
 **Risk-Controlled Hybrid Triple Extraction**
 
-面向目标关系模式约束的风险受控混合三元组抽取框架。
+面向目标关系模式的风险受控混合三元组抽取框架。
 
-RCH-TE 将大语言模型的开放三元组生成与判别模型、模式约束和确定性规则结合，从文本中构建关系标签符合目标模式的三元组。框架围绕 **Correct、Keep、Reject** 组织精化决策，通过受约束的实体与关系修正、原预测保留和文本—三元组验证，控制生成结果进入知识图谱的过程。
-
-本项目在 EDC 的开放抽取、关系定义与关系规范化流程上扩展。主入口和部分实现沿用开发阶段的 `BF-EDC`、`BidirectionalFeedbackEDC` 命名。基础方法见 EDC 论文及代码。[论文](https://arxiv.org/abs/2404.03868) · [上游仓库](https://github.com/clear-nus/edc)
+RCH-TE 从源文本和目标关系模式出发，将大语言模型生成的候选三元组送入受约束的局部修正与文本证据验证流程。框架对实体表面形式和有限关系标签执行条件化修正，合并重复候选，再根据文本—三元组支持分数保留或过滤完整事实，并保存修改日志与处理统计。
 
 ## 目录
 
@@ -20,47 +18,39 @@ RCH-TE 将大语言模型的开放三元组生成与判别模型、模式约束�
 - [输出与审计](#输出与审计)
 - [评估](#评估)
 - [实验配置与复现范围](#实验配置与复现范围)
-- [致谢与引用](#致谢与引用)
+- [参考文献](#参考文献)
 - [许可证](#许可证)
 
 ## 方法概述
 
-给定文本和预定义的目标关系集合，RCH-TE 输出由主语、目标关系和宾语组成的三元组列表。框架关注开放关系到目标谓词的映射、实体与字面量的表示，以及完整事实的文本支持程度。
+RCH-TE 将候选生成、局部改写决策和完整事实过滤分为三个环节。
 
-| 环节 | 主要作用 | 对应实现 |
+| 环节 | 输入与处理 | 输出 |
 | --- | --- | --- |
-| 开放三元组生成 | 使用 LLM 从输入文本提取实体与开放关系 | `edc/extract.py`、`edc/bidirectional_feedback_edc.py` |
-| 关系定义与模式规范化 | 生成关系描述，检索目标关系候选，并使用 LLM 判断映射 | `edc/schema_definition.py`、`edc/schema_canonicalization.py` |
-| 受控局部修正 | 使用实体对齐器、关系分类器和模式感知重排提出并筛选修改 | `entity_aligner.py`、`relation_classifier.py`、`edc/relation_reranker.py` |
-| 确定性输出处理 | 按配置修复表面形式、执行有限关系纠正和去重 | `edc/object_normalizer.py`、`edc/output_postprocessor.py` |
-| 文本证据过滤 | 为文本—三元组对评分，按全局或关系级阈值保留候选 | `scripts/rebel/score_rebel_entailment.py`、`scripts/rebel/apply_rebel_entailment_scores.py` |
+| 候选生成 | LLM 根据源文本抽取开放三元组，并将关系规范化到目标模式 | 目标关系模式下的候选三元组 |
+| 受约束局部修正 | 根据源文本与规则条件执行表面规范化、有限关系纠正，并去除重复候选 | 修正后的候选及编辑日志 |
+| 文本—三元组验证 | 联合编码源文本与候选三元组，通过二分类器获得支持分数 | 按阈值保留的最终三元组、过滤日志和统计 |
 
-三个决策承担不同作用。
+<p align="center">
+  <a href="assets/Fig1.pdf">
+    <img src="assets/Fig1.png" alt="RCH-TE framework showing candidate generation, rule-constrained local correction, deduplication, and text-triple verification" width="900">
+  </a>
+</p>
 
-- **Correct** 在候选空间和适用约束内修正实体表示或目标关系。
-- **Keep** 在修改条件不足时保留原预测。关系重排结合候选概率、相对分数优势、模式合法性与上下文条件决定是否替换。
-- **Reject** 使用文本—三元组验证分数过滤证据支持不足的候选。
+**RCH-TE 总体框架。** 局部修正模块根据上下文与规则条件决定修改或保留原预测，验证器对修正后的完整候选计算支持分数 q，并根据阈值 τ 执行保留或过滤。实线表示数据或证据流，虚线表示日志与统计输出。[查看原始 PDF](assets/Fig1.pdf)
 
-以下展示统一精化协议的概念流程。
+局部修正与事实过滤分别承担以下决策。
 
-```mermaid
-flowchart TD
-    A[输入文本与目标关系模式] --> B[开放三元组生成]
-    B --> C[关系定义与模式规范化]
-    C --> D[受控局部修正与表面处理]
-    D --> E[文本—三元组验证]
-    E --> F[保留满足阈值的三元组]
-    D -.-> G[修改日志与处理统计]
-    E -.-> G
-```
+- **Correct / Preserve**。当修改满足来源文本、模式和规则条件时接受修正，条件不足时保留原预测。
+- **Keep / Reject**。验证器在 q ≥ τ 时保留候选，在 q < τ 时过滤候选。τ 可以按实验配置采用全局阈值或关系级策略。
 
-主抽取入口内部的关系重排位于关系定义之后、模式规范化之前，实体对齐位于后续处理阶段。离线精化流程可对固定候选执行局部修正，再重新评分和过滤。文本—三元组验证通过独立脚本运行，复现时需显式连接这两个阶段。
+代码中的主抽取入口生成候选并执行已启用的模块。`scripts/analyze_dataset_corrections_v3.py` 和 `scripts/analyze_dataset_corrections_v4.py` 实现固定候选上的局部修正与四组对照，文本验证也可通过独立评分和过滤脚本运行。完整实验需按同一候选、规则版本和处理顺序连接这些阶段。
 
 ## 代码结构
 
 ```text
 .
-├── run_bf_edc.py                   # RCH-TE 主抽取入口，沿用 BF-EDC 命名
+├── run_bf_edc.py                   # RCH-TE 主抽取入口
 ├── edc/
 │   ├── bidirectional_feedback_edc.py
 │   ├── schema_definition.py
@@ -81,7 +71,7 @@ flowchart TD
 │   ├── rebel/                      # REBEL 数据、验证、过滤与训练工具
 │   └── wiki_nre/                   # Wiki-NRE 数据与验证器实验
 ├── evaluate/                       # 评估器及参考三元组
-├── analysis/                       # 实验配置、诊断与来源审计
+├── assets/                         # 框架图及原始 PDF
 ├── model_api_config.example.json
 └── environment.yml
 ```
@@ -95,11 +85,11 @@ git clone https://github.com/weizhou1229/RCH-TE.git
 cd RCH-TE
 ```
 
-`environment.yml` 保存了 Linux/CUDA 环境快照，包含 Python 3.9、PyTorch 2.2.2、CUDA 12.1、Transformers 4.43.4 和 Sentence Transformers 3.0.1。可在 Linux 或 WSL 中使用 Conda 创建环境。
+使用 `-n RCH-TE` 为本地运行环境指定项目名称。`environment.yml` 保存了 Linux/CUDA 环境快照，包含 Python 3.9、PyTorch 2.2.2、CUDA 12.1、Transformers 4.43.4 和 Sentence Transformers 3.0.1。可在 Linux 或 WSL 中使用 Conda 创建环境。
 
 ```bash
-conda env create -f environment.yml
-conda activate edc
+conda env create -f environment.yml -n RCH-TE
+conda activate RCH-TE
 ```
 
 准备评估所需的 NLTK 分词资源。
@@ -186,7 +176,7 @@ few_shot_examples/<dataset>/
 
 ## 快速开始
 
-以下命令均在仓库根目录执行，使用 Bash 的多行续写语法。基础示例使用自带的 `example` 数据，启用最终输出处理。运行前先完成模型配置并准备嵌入模型。
+以下命令在仓库根目录执行，使用 Bash 的多行续写语法。最小示例使用自带的 `example` 数据生成模式规范化候选，并启用最终输出处理。运行前完成模型配置并准备嵌入模型。
 
 ```bash
 python run_bf_edc.py \
@@ -201,7 +191,7 @@ python run_bf_edc.py \
   --output_dir output/example_rchte
 ```
 
-该示例运行开放抽取、模式规范化及已启用的规则处理。要运行包含判别模型与文本证据过滤的配置，继续启用下面的可选模块，并执行下一节的验证步骤。每次运行使用独立输出目录，便于保留配置与中间结果。
+最小示例完成候选生成及所选规则处理。文本证据过滤按照下一节的评分与过滤命令执行，可选实体对齐和关系重排按需启用。每次运行使用独立输出目录，保存配置与中间结果。
 
 ### 启用关系重排与实体对齐
 
@@ -349,9 +339,9 @@ python evaluate/evaluation_script1.py --verify_solver
 python scripts/analyze_dataset_corrections_v4.py --self-test
 ```
 
-## 致谢与引用
+## 参考文献
 
-本项目基于 EDC 进行扩展，保留其开放抽取、关系定义和模式规范化实现基础。使用这些资源时，请同时参考并引用 EDC 的原始工作。[EDC 论文](https://arxiv.org/abs/2404.03868)
+候选生成流程复用了下列工作中的开放抽取、关系定义与模式规范化基础实现，相关版权声明保留在仓库许可证中。使用这些组件时，请引用原始工作。[Extract, Define, Canonicalize](https://arxiv.org/abs/2404.03868)
 
 ```bibtex
 @article{zhang2024extract,
